@@ -64,11 +64,13 @@ def get_grades(response , session=None):
         tables = grades_soup.find_all('table')
 
 # Loop through each table
+        semestre = ""
         for table in tables:
             # Extract the module name from the first row
             # Find all rows containing data
-            rows = table.find_all('tr', class_=lambda x: x and 'tr-odd' in x)
+            rows = table.find_all('tr', class_=lambda x: x and ('tr-odd' in x or 'bg-success' in x))
             i = 0
+            module = ""
             # Loop through each row
             for row in rows:
                 i += 1
@@ -79,21 +81,26 @@ def get_grades(response , session=None):
                 # Extracting the element name
                 
                 element_name = columns[0].text.strip()
-                absence = columns[1].text.strip()
-                note_av_ratt = columns[2].text.strip()
-                note_ratt = columns[3].text.strip()
-                moyenne = columns[4].text.strip()
-                resultat = columns[5].text.strip()
-                print(element_name)
-                if element_name[0] == "M": 
-                    module = element_name
-                    grades[module] = {"moyenne" : moyenne , "resultat" : resultat}
-                    
-                else :
-                    element = element_name
-                    grades[module][element] = {"absence": absence, "note_av_ratt": note_av_ratt, "note_ratt": note_ratt}
-                # Extracting the grades
                 
+                print(element_name)
+                if element_name[0] == "S" :
+                    semestre = element_name
+                    grades[semestre] = {} 
+                else : 
+                    absence = columns[1].text.strip()
+                    note_av_ratt = columns[2].text.strip()
+                    note_ratt = columns[3].text.strip()
+                    moyenne = columns[4].text.strip()
+                    resultat = columns[5].text.strip()
+                        
+                    if element_name[0] == "M": 
+                        module = element_name
+                        grades[semestre][module] = {"moyenne" : moyenne , "resultat" : resultat}
+                    else :
+                        element = element_name
+                        grades[semestre][module][element] = {"absence": absence, "note_av_ratt": note_av_ratt, "note_ratt": note_ratt}
+                    # Extracting the grades
+                    
 
                 # Print the extracted data
                 print(grades)
