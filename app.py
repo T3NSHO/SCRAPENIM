@@ -38,7 +38,7 @@ def verify_creds():
     username = request.json.get("username", None)
     password = request.json.get("password", None)
     response , session = enim_login(username, password)
-    data = check_creds(response,session)
+    data = get_grades(response,session)
     return data
     
     

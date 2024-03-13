@@ -54,5 +54,51 @@ def check_creds(response , session=None):
         
     
     
-def get_grades():
-    pass
+def get_grades(response , session=None):
+    if response['status'] == "success" :
+        grades = {}
+        dashoboard = session.get('https://edu.mines-rabat.ma/user/dashboard')
+        soupkhra = BeautifulSoup(dashoboard.content,'html.parser')
+        grades_link = soupkhra.find(id="academic_button")['href']
+        grades_soup = BeautifulSoup(session.get(login_url+grades_link).content,'html.parser')
+        tables = grades_soup.find_all('table')
+
+# Loop through each table
+        for table in tables:
+            # Extract the module name from the first row
+            # Find all rows containing data
+            rows = table.find_all('tr', class_=lambda x: x and 'tr-odd' in x)
+            i = 0
+            # Loop through each row
+            for row in rows:
+                i += 1
+                print(row , i)
+                # Extract the elements and grades
+                columns = row.find_all('td')
+
+                # Extracting the element name
+                
+                element_name = columns[0].text.strip()
+                absence = columns[1].text.strip()
+                note_av_ratt = columns[2].text.strip()
+                note_ratt = columns[3].text.strip()
+                moyenne = columns[4].text.strip()
+                resultat = columns[5].text.strip()
+                print(element_name)
+                if element_name[0] == "M": 
+                    module = element_name
+                    grades[module] = {"moyenne" : moyenne , "resultat" : resultat}
+                    
+                else :
+                    element = element_name
+                    grades[module][element] = {"absence": absence, "note_av_ratt": note_av_ratt, "note_ratt": note_ratt}
+                # Extracting the grades
+                
+
+                # Print the extracted data
+                print(grades)
+        return jsonify(grades)
+                
+    else :
+        session.close()
+        return  jsonify({"status": "failed" , "error message":"failed to retrieve data "})
