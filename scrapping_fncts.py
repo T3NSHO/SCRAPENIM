@@ -3,12 +3,14 @@ from bs4 import BeautifulSoup
 from flask import jsonify
 import re
 from urllib.parse import quote
+import json
+import sqlite3
 
 login_url = "https://edu.mines-rabat.ma/" 
 
 pattern = r"(E[0-9])\w+"
 
-def enim_login(username,password):
+def get_session(username,password):
     session = requests.Session()
     login_page = session.get(login_url)
     soup = BeautifulSoup(login_page.content, 'html.parser')
@@ -27,9 +29,8 @@ def enim_login(username,password):
         return {"status": "failed"} , None
 
 
-def check_creds(response , session=None):
-    print(response)
-    if response['status'] == "success" :
+def get_student_data(session=None):
+    if session is not None :
         dashoboard = session.get('https://edu.mines-rabat.ma/user/dashboard')
         soupkhra = BeautifulSoup(dashoboard.content,'html.parser')
         profile = soupkhra.find(id="student_details_button")['href']
@@ -46,16 +47,14 @@ def check_creds(response , session=None):
         filliere = anothersoup.findAll('h6')[1].text
         cartenational = anothersoup.findAll('h6')[2].text
         email = firstname.replace(' ','').lower() + '.' +name.replace(firstname,'').replace(' ','').lower() + '@enim.ac.ma'
-        session.close()
         return jsonify({"status": "success", "name": name.replace('  ',' ').strip(), "email" : email ,"id": username, "phone_number": phone_number, "filliere": filliere, "cartenationale": cartenational , 'image':picture})
     else :
-        session.close()
         return  jsonify({"status": "failed" , "error message":"failed to retrieve data "})
         
     
     
-def get_grades(response , session=None):
-    if response['status'] == "success" :
+def get_student_grades(session=None):
+    if session is not None:
         grades = {}
         dashoboard = session.get('https://edu.mines-rabat.ma/user/dashboard')
         soupkhra = BeautifulSoup(dashoboard.content,'html.parser')
@@ -69,12 +68,9 @@ def get_grades(response , session=None):
             # Extract the module name from the first row
             # Find all rows containing data
             rows = table.find_all('tr', class_=lambda x: x and ('tr-odd' in x or 'bg-success' in x))
-            i = 0
             module = ""
             # Loop through each row
             for row in rows:
-                i += 1
-                print(row , i)
                 # Extract the elements and grades
                 columns = row.find_all('td')
 
@@ -82,7 +78,6 @@ def get_grades(response , session=None):
                 
                 element_name = columns[0].text.strip()
                 
-                print(element_name)
                 if element_name[0] == "S" :
                     semestre = element_name
                     grades[semestre] = {} 
@@ -103,9 +98,17 @@ def get_grades(response , session=None):
                     
 
                 # Print the extracted data
-                print(grades)
         return jsonify(grades)
                 
     else :
-        session.close()
         return  jsonify({"status": "failed" , "error message":"failed to retrieve data "})
+    
+    
+def get_cookie(username):
+    con = sqlite3.connect("sessions.db")
+    cur = con.cursor()
+    res = cur.execute("SELECT cookie FROM sessions WHERE username = ?",(username,))
+    s = res.fetchone()[0]
+    s = s.replace("\'", "\"")
+    cookie = json.loads(s)
+    return cookie

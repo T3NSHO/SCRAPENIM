@@ -1,13 +1,16 @@
-from flask import Flask
+from flask import Flask,session
 from flask import jsonify
 from flask import request
-
+import json
+import requests
+import sqlite3
 from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
 
-from scrapping_fncts import check_creds, enim_login , get_grades
+from scrapping_fncts import get_student_data, get_session , get_student_grades , get_cookie
+from encryption import encrypt, decrypt
 import os
 
 
@@ -18,6 +21,7 @@ secret_key = os.getenv('SECRET_KEY')
 api_username = os.getenv('api_user')
 api_password = os.getenv('api_password')
 app.config["JWT_SECRET_KEY"] = secret_key
+app.secret_key = secret_key
 jwt = JWTManager(app)
 
 
@@ -27,9 +31,10 @@ def login():
     print("request received")
     username = request.json.get("username", None)
     password = request.json.get("password", None)
+    user_id = request.json.get("user_id", None)
     if username != api_username or password != api_password:
         return jsonify({"msg": "Bad username or password"}), 401
-    access_token = create_access_token(identity=username)
+    access_token = create_access_token(identity={"user_id" : encrypt(user_id)})
     return jsonify(access_token=access_token)
 
 
@@ -37,8 +42,32 @@ def login():
 def verify_creds():
     username = request.json.get("username", None)
     password = request.json.get("password", None)
-    response , session = enim_login(username, password)
-    data = get_grades(response,session)
+    response , actualsession = get_session(username, password)
+    cookietsave = requests.utils.dict_from_cookiejar(actualsession.cookies)
+    con = sqlite3.connect("sessions.db")
+    cur = con.cursor()
+    res = cur.execute("INSERT INTO sessions (username,cookie) VALUES (?,?)",(username,str(cookietsave)))
+    con.commit()
+    con.close()
+    return response
+
+
+@app.route("/get_data" , methods=["POST"])
+def get_data():
+    username = request.json.get("username", None)
+    newsession = requests.Session()
+    cookie = get_cookie(username)
+    newsession.cookies.update(cookie)
+    data = get_student_data(newsession)
+    return data
+
+@app.route("/get_grades" , methods=["POST"])
+def get_grades():
+    username = request.json.get("username", None)
+    newsession = requests.Session()
+    cookie = get_cookie(username)
+    newsession.cookies.update(cookie)
+    data = get_student_grades(newsession)
     return data
     
     
